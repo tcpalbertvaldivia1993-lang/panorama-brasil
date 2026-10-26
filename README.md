@@ -113,4 +113,4 @@ sqlite3 data/panorama.db "SELECT fecha, valor FROM series WHERE codigo = 1 ORDER
 - [x] `notebooks/analisis.ipynb`: Selic vs. IPCA, evolución del dólar
 - [x] `dashboard/app.py`: Streamlit con selector de serie y rango de fechas
 - [ ] Capturas del dashboard en el README
-- [ ] Subir a GitHub
+- [x] Subir a GitHub

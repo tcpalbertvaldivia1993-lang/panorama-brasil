@@ -1,5 +1,6 @@
 # Panorama económico de Brasil
 
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://panorama-brasil.streamlit.app/)
 [![tests](https://github.com/tcpalbertvaldivia1993-lang/panorama-brasil/actions/workflows/tests.yml/badge.svg)](https://github.com/tcpalbertvaldivia1993-lang/panorama-brasil/actions/workflows/tests.yml)
 [![respaldo de datos](https://github.com/tcpalbertvaldivia1993-lang/panorama-brasil/actions/workflows/actualizar-respaldo.yml/badge.svg)](https://github.com/tcpalbertvaldivia1993-lang/panorama-brasil/actions/workflows/actualizar-respaldo.yml)
 
@@ -7,6 +8,8 @@
 
 Proyecto de punta a punta con datos públicos del **Banco Central de Brasil (BCB)**:
 API → base de datos SQLite → notebook de análisis → dashboard interactivo en inglés, portugués y español.
+
+**🔗 Demo en vivo: https://panorama-brasil.streamlit.app/**
 
 ![Dashboard](notebooks/figuras/dashboard_selic.png)
 

@@ -1,5 +1,6 @@
 # Brazil Economic Overview
 
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://panorama-brasil.streamlit.app/)
 [![tests](https://github.com/tcpalbertvaldivia1993-lang/panorama-brasil/actions/workflows/tests.yml/badge.svg)](https://github.com/tcpalbertvaldivia1993-lang/panorama-brasil/actions/workflows/tests.yml)
 [![data backup](https://github.com/tcpalbertvaldivia1993-lang/panorama-brasil/actions/workflows/actualizar-respaldo.yml/badge.svg)](https://github.com/tcpalbertvaldivia1993-lang/panorama-brasil/actions/workflows/actualizar-respaldo.yml)
 
@@ -7,6 +8,8 @@
 
 End-to-end data project with public data from the **Central Bank of Brazil (BCB)**:
 API → SQLite database → analysis notebook → interactive dashboard in English, Portuguese and Spanish.
+
+**🔗 Live demo: https://panorama-brasil.streamlit.app/**
 
 ![Dashboard](notebooks/figuras/dashboard_selic.png)
 

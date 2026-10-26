@@ -35,12 +35,10 @@ def estado_actualizacion() -> dict:
 
 
 def preparar_base() -> None:
-    """Si falta data/panorama.db (por ejemplo en Streamlit Cloud), descarga las series y la crea."""
-    estado = estado_actualizacion()
-    with estado["candado"]:  # si llegan varios visitantes a la vez, solo uno crea la base
+    """Si falta data/panorama.db (por ejemplo en Streamlit Cloud), la crea."""
+    with estado_actualizacion()["candado"]:  # si llegan varios visitantes a la vez, solo uno la crea
         if not base_lista():
-            crear_base()
-            estado["ultimo_intento"] = pd.Timestamp.now()
+            crear_base()  # desde el respaldo si existe; los datos nuevos llegan en segundo plano
 
 
 def actualizar_en_segundo_plano() -> None:

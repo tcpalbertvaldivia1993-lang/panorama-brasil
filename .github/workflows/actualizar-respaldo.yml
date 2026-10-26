@@ -1,0 +1,36 @@
+# Cada día descarga los datos nuevos del BCB y actualiza data/respaldo.csv.gz.
+# El dashboard usa ese respaldo para arrancar al instante y cuando la API no responde.
+name: actualizar respaldo
+
+on:
+  schedule:
+    - cron: "0 12 * * *"  # todos los días a las 12:00 UTC (09:00 en Brasilia)
+  workflow_dispatch:      # permite ejecutarlo a mano desde la pestaña Actions
+
+permissions:
+  contents: write  # necesario para subir el respaldo actualizado
+
+jobs:
+  respaldo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Instalar dependencias
+        run: pip install requests pandas  # solo lo necesario para descargar y guardar
+      - name: Descargar datos nuevos y exportar el respaldo
+        # Parte del respaldo actual y pide a la API solo los datos nuevos
+        run: python -m src.db --exportar-respaldo
+      - name: Subir el respaldo si cambió
+        run: |
+          if git diff --quiet data/respaldo.csv.gz; then
+            echo "Sin datos nuevos: no hay nada que subir."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/respaldo.csv.gz
+            git commit -m "Actualizar respaldo de datos del BCB"
+            git push
+          fi

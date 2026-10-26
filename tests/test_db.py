@@ -1,6 +1,7 @@
 """Pruebas de la base SQLite. Usan una base temporal; nunca tocan data/panorama.db."""
 
 import sqlite3
+import time
 from datetime import date, timedelta
 
 import pandas as pd
@@ -22,6 +23,12 @@ def filas(codigo, valores):
 @pytest.fixture
 def ruta(tmp_path):
     return tmp_path / "prueba.db"
+
+
+@pytest.fixture
+def sin_respaldo(tmp_path):
+    """Ruta de un respaldo que no existe: obliga a crear_base a usar la API (simulada)."""
+    return tmp_path / "no_existe.csv.gz"
 
 
 def contar(ruta):
@@ -81,16 +88,16 @@ def test_base_lista_verdadero_con_datos(ruta):
 
 # ---------- crear_base (con la descarga simulada) ----------
 
-def test_crear_base_carga_todas_las_series(monkeypatch, ruta):
+def test_crear_base_carga_todas_las_series(monkeypatch, ruta, sin_respaldo):
     monkeypatch.setattr(db, "descargar_serie", lambda codigo, inicio: filas(codigo, [1.0, 2.0]))
-    db.crear_base(ruta)
+    db.crear_base(ruta, sin_respaldo)
 
     assert db.base_lista(ruta)
     assert contar(ruta) == 2 * len(db.SERIES)
     assert not ruta.with_suffix(".tmp").exists()
 
 
-def test_crear_base_si_falla_no_deja_base_incompleta(monkeypatch, ruta):
+def test_crear_base_si_falla_no_deja_base_incompleta(monkeypatch, ruta, sin_respaldo):
     def descarga_que_falla(codigo, inicio):
         if codigo == 433:
             raise RuntimeError("API caída")
@@ -98,13 +105,13 @@ def test_crear_base_si_falla_no_deja_base_incompleta(monkeypatch, ruta):
 
     monkeypatch.setattr(db, "descargar_serie", descarga_que_falla)
     with pytest.raises(RuntimeError):
-        db.crear_base(ruta)
+        db.crear_base(ruta, sin_respaldo)
     assert not ruta.exists()
 
 
-def test_crear_base_si_falla_conserva_la_base_anterior(monkeypatch, ruta):
+def test_crear_base_si_falla_conserva_la_base_anterior(monkeypatch, ruta, sin_respaldo):
     monkeypatch.setattr(db, "descargar_serie", lambda codigo, inicio: filas(codigo, [1.0, 2.0, 3.0]))
-    db.crear_base(ruta)
+    db.crear_base(ruta, sin_respaldo)
     filas_antes = contar(ruta)
 
     def descarga_que_falla(codigo, inicio):
@@ -112,7 +119,7 @@ def test_crear_base_si_falla_conserva_la_base_anterior(monkeypatch, ruta):
 
     monkeypatch.setattr(db, "descargar_serie", descarga_que_falla)
     with pytest.raises(RuntimeError):
-        db.crear_base(ruta)
+        db.crear_base(ruta, sin_respaldo)
     assert contar(ruta) == filas_antes
 
 
@@ -174,3 +181,65 @@ def test_cargar_series_con_desde_ignora_lo_que_ya_hay(monkeypatch, ruta):
     db.cargar_series(conexion, desde=date(2015, 1, 1))
     conexion.close()
     assert set(pedidos.values()) == {date(2015, 1, 1)}
+
+
+# ---------- Respaldo CSV ----------
+
+@pytest.fixture
+def base_con_datos(ruta):
+    conexion = db.conectar(ruta)
+    db.guardar(conexion, pd.concat([filas(1, [4.8516, 4.9008]), filas(433, [0.42, -0.21])]))
+    yield conexion
+    conexion.close()
+
+
+def test_respaldo_ida_y_vuelta_conserva_los_datos(base_con_datos, tmp_path):
+    respaldo = tmp_path / "respaldo.csv.gz"
+    assert db.exportar_respaldo(base_con_datos, respaldo) == 4
+
+    otra = db.conectar(tmp_path / "otra.db")
+    assert db.cargar_respaldo(otra, respaldo) == 4
+    consulta = "SELECT codigo, nombre, fecha, valor FROM series ORDER BY codigo, fecha"
+    assert otra.execute(consulta).fetchall() == base_con_datos.execute(consulta).fetchall()
+    otra.close()
+
+
+def test_respaldo_no_cambia_si_los_datos_no_cambian(base_con_datos, tmp_path):
+    """Si el archivo cambiara en cada exportación, el Action haría un commit inútil cada día."""
+    respaldo = tmp_path / "respaldo.csv.gz"  # mismo nombre: gzip guarda el nombre en la cabecera
+    db.exportar_respaldo(base_con_datos, respaldo)
+    antes = respaldo.read_bytes()
+    time.sleep(1.1)  # gzip también guarda la hora, salvo que se fije mtime=0
+    db.exportar_respaldo(base_con_datos, respaldo)
+    assert respaldo.read_bytes() == antes
+
+
+def test_crear_base_con_respaldo_no_usa_la_api(monkeypatch, base_con_datos, ruta, tmp_path):
+    respaldo = tmp_path / "respaldo.csv.gz"
+    db.exportar_respaldo(base_con_datos, respaldo)
+
+    def api_caida(codigo, inicio):
+        raise RuntimeError("la API no debería usarse")
+
+    monkeypatch.setattr(db, "descargar_serie", api_caida)
+    nueva = tmp_path / "nueva.db"
+    db.crear_base(nueva, respaldo)
+    assert contar(nueva) == 4
+
+
+def test_esta_vacia(ruta):
+    conexion = db.conectar(ruta)
+    assert db.esta_vacia(conexion)
+    db.guardar(conexion, filas(1, [5.0]))
+    assert not db.esta_vacia(conexion)
+    conexion.close()
+
+
+def test_respaldo_del_repositorio_es_valido():
+    """El respaldo que se sube a GitHub debe tener las tres series y datos recientes."""
+    df = pd.read_csv(db.RUTA_RESPALDO)
+    assert list(df.columns) == ["codigo", "nombre", "fecha", "valor"]
+    assert set(df["codigo"]) == set(db.SERIES)
+    assert not df.duplicated(["codigo", "fecha"]).any()
+    assert df["fecha"].min() <= "2000-01-03"
+    assert df["valor"].notna().all()

@@ -33,8 +33,10 @@ Fuente: API SGS del BCB, sin registro ni credenciales:
 │   ├── app.py          # dashboard de Streamlit
 │   └── idiomas.py      # textos en inglés, portugués y español
 ├── tests/              # pruebas con pytest (sin conexión a la API)
-├── data/               # panorama.db (no se sube a GitHub)
-├── .github/workflows/  # GitHub Actions: ejecuta las pruebas en cada push
+├── data/
+│   ├── panorama.db     # base SQLite (no se sube a GitHub)
+│   └── respaldo.csv.gz # copia de los datos, actualizada cada día por GitHub Actions
+├── .github/workflows/  # GitHub Actions: pruebas en cada push y respaldo diario
 ├── requirements.txt
 ├── requirements-dev.txt
 └── README.md
@@ -88,7 +90,7 @@ En la barra lateral se eligen las series y el rango de fechas. Arriba a la derec
 
 ### Publicarlo en Streamlit Community Cloud
 
-La base `data/panorama.db` no se sube a GitHub. Si el dashboard no la encuentra, descarga las series de la API y la crea; la primera visita tarda unos 3 minutos. Después, el dashboard busca datos nuevos en segundo plano como mucho cada 12 horas, sin hacer esperar a nadie.
+La base `data/panorama.db` no se sube a GitHub. Si el dashboard no la encuentra, la crea al instante desde `data/respaldo.csv.gz`. Después busca datos nuevos en la API en segundo plano, como mucho cada 12 horas, sin hacer esperar a nadie.
 
 1. Entrar en https://share.streamlit.io con la cuenta de GitHub.
 2. **Create app** → repositorio `panorama-brasil`, rama `main`, archivo `dashboard/app.py`.
@@ -136,6 +138,7 @@ sqlite3 data/panorama.db "SELECT fecha, valor FROM series WHERE codigo = 1 ORDER
 - La API devuelve fechas `dd/mm/aaaa` y valores como texto; al cargar se convierten a fecha ISO y a número.
 - La API acepta como máximo **10 años por consulta** en las series diarias, por eso la descarga se hace por tramos.
 - Ante errores de red o respuestas vacías, se reintenta varias veces con espera creciente.
+- **Respaldo:** la API a veces no responde durante horas. Por eso un GitHub Action descarga cada día los datos nuevos y actualiza `data/respaldo.csv.gz` (unos 60 KB). El dashboard y `python -m src.db` parten de ese respaldo cuando no hay base, así que funcionan aunque la API esté caída. Para generarlo a mano: `venv/bin/python -m src.db --exportar-respaldo`.
 
 ## Próximos pasos
 
@@ -146,3 +149,4 @@ sqlite3 data/panorama.db "SELECT fecha, valor FROM series WHERE codigo = 1 ORDER
 - [x] Subir a GitHub
 - [x] Pruebas automáticas y GitHub Actions
 - [x] Actualización incremental de los datos
+- [x] Respaldo diario de los datos para cuando falle la API

@@ -80,6 +80,14 @@ En la barra lateral se eligen las series y el rango de fechas. Arriba a la derec
 
 ![Dashboard: promedio anual y datos](notebooks/figuras/dashboard_tabla.png)
 
+### Publicarlo en Streamlit Community Cloud
+
+La base `data/panorama.db` no se sube a GitHub. Si el dashboard no la encuentra, descarga las series de la API y la crea; la primera visita tarda unos 2 minutos.
+
+1. Entrar en https://share.streamlit.io con la cuenta de GitHub.
+2. **Create app** → repositorio `panorama-brasil`, rama `main`, archivo `dashboard/app.py`.
+3. En **Advanced settings**, elegir Python 3.12 y pulsar **Deploy**.
+
 ## Análisis
 
 ![Selic vs. IPCA](notebooks/figuras/selic_vs_ipca.png)

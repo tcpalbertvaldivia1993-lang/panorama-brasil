@@ -4,6 +4,7 @@ venv/
 
 # Datos y secretos
 data/*.db
+data/*.tmp
 .env
 
 # Python y Jupyter

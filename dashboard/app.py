@@ -19,11 +19,21 @@ sys.path.insert(0, str(RAIZ))
 from dashboard.idiomas import FORMATO_FECHA, IDIOMAS, NOMBRES_SERIES, TEXTOS  # noqa: E402
 from src.bcb_client import SERIES  # noqa: E402
 from src.consultas import leer_series, selic_vs_ipca  # noqa: E402
-from src.db import RUTA_DB  # noqa: E402
+from src.db import base_lista, crear_base  # noqa: E402
 
 COLORES = {432: "#1f77b4", 433: "#d62728", 1: "#2ca02c"}
 
 st.set_page_config(page_title="Panorama Brasil", page_icon="📈", layout="wide")
+
+
+@st.cache_resource(show_spinner=False)
+def preparar_base() -> None:
+    """Si falta data/panorama.db (por ejemplo en Streamlit Cloud), descarga las series y la crea.
+
+    cache_resource hace que se ejecute una sola vez, aunque haya varios visitantes a la vez.
+    """
+    if not base_lista():
+        crear_base()
 
 
 @st.cache_data
@@ -70,8 +80,11 @@ FECHA = FORMATO_FECHA[idioma]
 col_titulo.title(T["titulo"])
 
 # ---------- Datos ----------
-if not RUTA_DB.exists():
-    st.error(T["sin_db"])
+try:
+    with st.spinner(T["descargando"]):
+        preparar_base()
+except RuntimeError as error:  # la API no respondió ni con reintentos
+    st.error(T["error_descarga"].format(error=error))
     st.stop()
 
 series = cargar_datos().assign(nombre=lambda df: df["codigo"].map(NOMBRES))

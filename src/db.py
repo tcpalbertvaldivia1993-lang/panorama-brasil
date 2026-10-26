@@ -44,6 +44,43 @@ def resumen(conexion: sqlite3.Connection) -> pd.DataFrame:
     return pd.read_sql_query(consulta, conexion)
 
 
+def cargar_series(conexion: sqlite3.Connection, desde: date = date(2000, 1, 1)) -> None:
+    """Descarga todas las series desde la fecha indicada y las guarda en la base."""
+    for codigo, nombre in SERIES.items():
+        print(f"Descargando {codigo} - {nombre}...")
+        df = descargar_serie(codigo, inicio=desde)
+        if df.empty:
+            print("  Sin datos en el rango pedido.")
+            continue
+        print(f"  {guardar(conexion, df)} filas guardadas.")
+
+
+def base_lista(ruta: Path = RUTA_DB) -> bool:
+    """Indica si la base existe y su tabla series tiene datos (sin crear el archivo si falta)."""
+    if not ruta.exists():
+        return False
+    try:
+        with sqlite3.connect(f"file:{ruta}?mode=ro", uri=True) as conexion:
+            return conexion.execute("SELECT COUNT(*) FROM series").fetchone()[0] > 0
+    except sqlite3.Error:  # archivo vacío, roto o sin la tabla
+        return False
+
+
+def crear_base(ruta: Path = RUTA_DB) -> None:
+    """Crea la base desde cero en un archivo temporal y lo renombra solo si la carga termina bien.
+
+    Así, si la descarga falla a mitad de camino, no queda una base incompleta.
+    """
+    temporal = ruta.with_suffix(".tmp")
+    temporal.unlink(missing_ok=True)
+    conexion = conectar(temporal)
+    try:
+        cargar_series(conexion)
+    finally:
+        conexion.close()
+    temporal.replace(ruta)
+
+
 def main() -> None:
     """Descarga todas las series y las carga en data/panorama.db."""
     parser = argparse.ArgumentParser(description="Carga las series del BCB en SQLite.")
@@ -53,13 +90,7 @@ def main() -> None:
 
     conexion = conectar()
     try:
-        for codigo, nombre in SERIES.items():
-            print(f"Descargando {codigo} - {nombre}...")
-            df = descargar_serie(codigo, inicio=args.desde)
-            if df.empty:
-                print("  Sin datos en el rango pedido.")
-                continue
-            print(f"  {guardar(conexion, df)} filas guardadas.")
+        cargar_series(conexion, args.desde)
         print("\nContenido de la tabla series:")
         print(resumen(conexion).to_string(index=False))
     finally:

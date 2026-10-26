@@ -18,7 +18,7 @@ SERIES = {
 # La API limita las series diarias a 10 años por consulta
 AÑOS_POR_TRAMO = 10
 TIMEOUT = 90  # la API del BCB a veces tarda más de 30 s en responder
-REINTENTOS = 4
+REINTENTOS = 5
 PAUSA = 1  # segundos entre consultas
 
 
@@ -62,7 +62,7 @@ def _pedir_tramo(codigo: int, desde: date, hasta: date) -> list[dict]:
                     f"No se pudo descargar la serie {codigo} "
                     f"({params['dataInicial']} - {params['dataFinal']}): {error}"
                 ) from error
-            time.sleep(2 * intento)
+            time.sleep(5 * intento)  # la API a veces responde 503 si está saturada
     return []
 
 

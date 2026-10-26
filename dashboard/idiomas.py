@@ -16,7 +16,8 @@ FORMATO_FECHA = {"en": "%m/%d/%Y", "pt": "%d/%m/%Y", "es": "%d/%m/%Y"}
 TEXTOS = {
     "en": {
         "idioma": "🌐 Language",
-        "sin_db": "data/panorama.db not found. Load the data first with: `venv/bin/python -m src.db`",
+        "descargando": "Downloading data from the Central Bank of Brazil for the first time (about 2 minutes)...",
+        "error_descarga": "Could not download the data: {error}. Reload the page to try again.",
         "filtros": "Filters",
         "series": "Series",
         "rango": "Date range",
@@ -48,7 +49,8 @@ TEXTOS = {
     },
     "pt": {
         "idioma": "🌐 Idioma",
-        "sin_db": "data/panorama.db não encontrado. Primeiro carregue os dados com: `venv/bin/python -m src.db`",
+        "descargando": "Baixando os dados do Banco Central do Brasil pela primeira vez (cerca de 2 minutos)...",
+        "error_descarga": "Não foi possível baixar os dados: {error}. Recarregue a página para tentar de novo.",
         "filtros": "Filtros",
         "series": "Séries",
         "rango": "Período",
@@ -80,7 +82,8 @@ TEXTOS = {
     },
     "es": {
         "idioma": "🌐 Idioma",
-        "sin_db": "No se encontró data/panorama.db. Primero carga los datos con: `venv/bin/python -m src.db`",
+        "descargando": "Descargando por primera vez los datos del Banco Central de Brasil (unos 2 minutos)...",
+        "error_descarga": "No se pudieron descargar los datos: {error}. Recarga la página para intentarlo de nuevo.",
         "filtros": "Filtros",
         "series": "Series",
         "rango": "Rango de fechas",

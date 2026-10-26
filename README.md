@@ -74,6 +74,12 @@ El dashboard tiene tres pestañas:
 
 En la barra lateral se eligen las series y el rango de fechas.
 
+![Dashboard: pestaña Series](notebooks/figuras/dashboard_series.png)
+
+![Dashboard: Selic vs. inflación](notebooks/figuras/dashboard_selic.png)
+
+![Dashboard: promedio anual y datos](notebooks/figuras/dashboard_tabla.png)
+
 ## Análisis
 
 ![Selic vs. IPCA](notebooks/figuras/selic_vs_ipca.png)
@@ -112,5 +118,5 @@ sqlite3 data/panorama.db "SELECT fecha, valor FROM series WHERE codigo = 1 ORDER
 - [x] `sql/consultas.sql`: promedio anual, máximos y mínimos, variación mensual
 - [x] `notebooks/analisis.ipynb`: Selic vs. IPCA, evolución del dólar
 - [x] `dashboard/app.py`: Streamlit con selector de serie y rango de fechas
-- [ ] Capturas del dashboard en el README
+- [x] Capturas del dashboard en el README
 - [x] Subir a GitHub

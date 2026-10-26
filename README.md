@@ -72,7 +72,7 @@ El dashboard tiene tres pestañas:
 - **Selic vs. inflación:** Selic meta, IPCA acumulado en 12 meses y tasa real aproximada.
 - **Promedio anual y datos:** tabla de promedios por año, datos filtrados y descarga en CSV.
 
-En la barra lateral se eligen las series y el rango de fechas.
+En la barra lateral se eligen las series y el rango de fechas. Arriba a la derecha hay un selector de idioma: inglés (por defecto), portugués o español.
 
 ![Dashboard: pestaña Series](notebooks/figuras/dashboard_series.png)
 

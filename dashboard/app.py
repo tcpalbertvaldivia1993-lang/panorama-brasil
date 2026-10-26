@@ -16,6 +16,7 @@ import streamlit as st
 RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ))
 
+from dashboard.idiomas import FORMATO_FECHA, IDIOMAS, NOMBRES_SERIES, TEXTOS  # noqa: E402
 from src.bcb_client import SERIES  # noqa: E402
 from src.consultas import leer_series, selic_vs_ipca  # noqa: E402
 from src.db import RUTA_DB  # noqa: E402
@@ -35,7 +36,7 @@ def tarjetas(datos: pd.DataFrame, codigo: int) -> None:
     """Muestra último valor, cambio en el período, máximo y mínimo de una serie."""
     serie = datos[datos["codigo"] == codigo].sort_values("fecha")
     if serie.empty:
-        st.info("Sin datos en el rango elegido.")
+        st.info(T["sin_datos"])
         return
     primero, ultimo = serie.iloc[0], serie.iloc[-1]
     maximo = serie.loc[serie["valor"].idxmax()]
@@ -43,73 +44,87 @@ def tarjetas(datos: pd.DataFrame, codigo: int) -> None:
 
     # El dólar se compara en %, las tasas (Selic, IPCA) en puntos porcentuales
     if codigo == 1:
-        cambio = f"{100 * (ultimo['valor'] / primero['valor'] - 1):+.2f} % en el período"
+        cambio = T["cambio_pct"].format(valor=100 * (ultimo["valor"] / primero["valor"] - 1))
     else:
-        cambio = f"{ultimo['valor'] - primero['valor']:+.2f} p.p. en el período"
+        cambio = T["cambio_pp"].format(valor=ultimo["valor"] - primero["valor"])
 
     col1, col2, col3 = st.columns(3)
-    col1.metric(f"Último ({ultimo['fecha']:%d/%m/%Y})", f"{ultimo['valor']:.4g}", cambio)
-    col2.metric(f"Máximo ({maximo['fecha']:%d/%m/%Y})", f"{maximo['valor']:.4g}")
-    col3.metric(f"Mínimo ({minimo['fecha']:%d/%m/%Y})", f"{minimo['valor']:.4g}")
+    col1.metric(T["ultimo"].format(fecha=f"{ultimo['fecha']:{FECHA}}"), f"{ultimo['valor']:.4g}", cambio)
+    col2.metric(T["maximo"].format(fecha=f"{maximo['fecha']:{FECHA}}"), f"{maximo['valor']:.4g}")
+    col3.metric(T["minimo"].format(fecha=f"{minimo['fecha']:{FECHA}}"), f"{minimo['valor']:.4g}")
 
+
+# ---------- Encabezado con selector de idioma ----------
+col_titulo, col_idioma = st.columns([5, 1], vertical_alignment="bottom")
+# Antes de dibujar el selector leemos el idioma guardado para traducir su etiqueta
+idioma_previo = st.session_state.get("idioma", next(iter(IDIOMAS)))
+idioma = col_idioma.selectbox(
+    TEXTOS[idioma_previo]["idioma"],
+    options=list(IDIOMAS),
+    format_func=IDIOMAS.get,
+    key="idioma",
+)
+T = TEXTOS[idioma]
+NOMBRES = NOMBRES_SERIES[idioma]
+FECHA = FORMATO_FECHA[idioma]
+col_titulo.title(T["titulo"])
 
 # ---------- Datos ----------
 if not RUTA_DB.exists():
-    st.error("No se encontró data/panorama.db. Primero carga los datos con: "
-             "`venv/bin/python -m src.db`")
+    st.error(T["sin_db"])
     st.stop()
 
-series = cargar_datos()
+series = cargar_datos().assign(nombre=lambda df: df["codigo"].map(NOMBRES))
 
 # ---------- Filtros (barra lateral) ----------
-st.sidebar.header("Filtros")
+st.sidebar.header(T["filtros"])
+# Una clave por idioma para que el navegador redibuje los nombres traducidos;
+# la selección se guarda aparte para no perderla al cambiar de idioma
 elegidas = st.sidebar.multiselect(
-    "Series",
+    T["series"],
     options=list(SERIES),
-    default=list(SERIES),
-    format_func=lambda codigo: f"{codigo} - {SERIES[codigo]}",
+    default=st.session_state.get("series_elegidas", list(SERIES)),
+    format_func=lambda codigo: f"{codigo} - {NOMBRES[codigo]}",
+    key=f"series_{idioma}",
 )
+st.session_state["series_elegidas"] = elegidas
 fecha_min, fecha_max = series["fecha"].min().date(), series["fecha"].max().date()
 rango = st.sidebar.date_input(
-    "Rango de fechas",
+    T["rango"],
     value=(pd.Timestamp("2015-01-01").date(), fecha_max),
     min_value=fecha_min,
     max_value=fecha_max,
-    format="DD/MM/YYYY",
+    format="YYYY-MM-DD",  # formato fijo: si cambiara con el idioma, se perdería el rango elegido
+    key="rango_fechas",
 )
 # Mientras el usuario elige, date_input puede devolver una sola fecha
 if len(rango) != 2:
-    st.sidebar.warning("Elige fecha inicial y final.")
+    st.sidebar.warning(T["elige_fechas"])
     st.stop()
 desde, hasta = pd.Timestamp(rango[0]), pd.Timestamp(rango[1])
 
-st.sidebar.caption(f"Datos: API SGS del Banco Central de Brasil · "
-                   f"último dato {fecha_max:%d/%m/%Y}")
+st.sidebar.caption(T["fuente"].format(fecha=f"{fecha_max:{FECHA}}"))
 
 filtrado = series[series["codigo"].isin(elegidas) & series["fecha"].between(desde, hasta)]
 
-# ---------- Encabezado ----------
-st.title("📈 Panorama económico de Brasil")
-st.caption(f"Del {desde:%d/%m/%Y} al {hasta:%d/%m/%Y}")
+st.caption(T["periodo"].format(desde=f"{desde:{FECHA}}", hasta=f"{hasta:{FECHA}}"))
 
 if not elegidas:
-    st.warning("Elige al menos una serie en la barra lateral.")
+    st.warning(T["elige_serie"])
     st.stop()
 
-pestaña_series, pestaña_real, pestaña_tabla = st.tabs(
-    ["Series", "Selic vs. inflación", "Promedio anual y datos"]
-)
+pestaña_series, pestaña_real, pestaña_tabla = st.tabs(T["pestañas"])
 
 # ---------- Pestaña 1: cada serie con sus tarjetas y gráfico ----------
 with pestaña_series:
     for codigo in elegidas:
-        st.subheader(SERIES[codigo])
+        st.subheader(NOMBRES[codigo])
         tarjetas(filtrado, codigo)
         datos_serie = filtrado[filtrado["codigo"] == codigo]
         tipo = px.bar if codigo == 433 else px.line  # el IPCA mensual se lee mejor en barras
         fig = tipo(datos_serie, x="fecha", y="valor",
                    color_discrete_sequence=[COLORES[codigo]],
-                   labels={"fecha": "", "valor": SERIES[codigo]})
+                   labels={"fecha": "", "valor": NOMBRES[codigo]})
         fig.update_layout(height=320, margin={"t": 10, "b": 10})
         st.plotly_chart(fig, width="stretch")
 
@@ -118,22 +133,21 @@ with pestaña_real:
     mensual = selic_vs_ipca(series)
     mensual = mensual[(mensual.index >= desde) & (mensual.index <= hasta)]
     if mensual.empty:
-        st.info("Sin datos de Selic e IPCA en el rango elegido.")
+        st.info(T["sin_datos_real"])
     else:
         ultimo = mensual.iloc[-1]
         col1, col2, col3 = st.columns(3)
-        col1.metric("Selic meta", f"{ultimo['selic']:.2f} %")
-        col2.metric("IPCA 12 meses", f"{ultimo['ipca_12m']:.2f} %")
-        col3.metric("Tasa real aprox.", f"{ultimo['tasa_real']:.2f} p.p.")
-        st.caption(f"Último mes con IPCA: {mensual.index[-1]:%m/%Y}. "
-                   "Tasa real aprox. = Selic meta − IPCA acumulado en 12 meses.")
+        col1.metric(T["selic_meta"], f"{ultimo['selic']:.2f} %")
+        col2.metric(T["ipca_12m"], f"{ultimo['ipca_12m']:.2f} %")
+        col3.metric(T["tasa_real"], f"{ultimo['tasa_real']:.2f} {T['unidad_pp']}")
+        st.caption(T["nota_real"].format(mes=f"{mensual.index[-1]:%m/%Y}"))
 
         fig = go.Figure()
-        fig.add_scatter(x=mensual.index, y=mensual["selic"], name="Selic meta (% a.a.)",
+        fig.add_scatter(x=mensual.index, y=mensual["selic"], name=T["linea_selic"],
                         line={"color": COLORES[432]})
-        fig.add_scatter(x=mensual.index, y=mensual["ipca_12m"], name="IPCA 12 meses (%)",
+        fig.add_scatter(x=mensual.index, y=mensual["ipca_12m"], name=T["linea_ipca"],
                         line={"color": COLORES[433]})
-        fig.add_bar(x=mensual.index, y=mensual["tasa_real"], name="Tasa real (p.p.)",
+        fig.add_bar(x=mensual.index, y=mensual["tasa_real"], name=T["barra_real"],
                     marker_color=["#d62728" if v < 0 else "#9ecae1" for v in mensual["tasa_real"]],
                     opacity=0.6)
         fig.update_layout(height=450, hovermode="x unified", yaxis_title="%",
@@ -142,17 +156,20 @@ with pestaña_real:
 
 # ---------- Pestaña 3: promedio anual y descarga ----------
 with pestaña_tabla:
-    st.subheader("Promedio anual")
+    columnas = T["columnas"]
+    st.subheader(T["promedio_anual"])
     anual = (filtrado.assign(año=filtrado["fecha"].dt.year)
              .pivot_table(index="año", columns="nombre", values="valor", aggfunc="mean")
-             .round(2))
+             .round(2)
+             .rename_axis(index=columnas["año"], columns=None))
     st.dataframe(anual, width="stretch")
 
-    st.subheader("Datos filtrados")
-    tabla = filtrado.assign(fecha=filtrado["fecha"].dt.strftime("%Y-%m-%d"))
+    st.subheader(T["datos_filtrados"])
+    tabla = (filtrado.assign(fecha=filtrado["fecha"].dt.strftime("%Y-%m-%d"))
+             .rename(columns=columnas))
     st.dataframe(tabla, width="stretch", hide_index=True, height=300)
     st.download_button(
-        "Descargar CSV",
+        T["descargar"],
         data=tabla.to_csv(index=False).encode("utf-8"),
         file_name="panorama_brasil.csv",
         mime="text/csv",

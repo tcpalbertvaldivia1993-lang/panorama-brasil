@@ -1,152 +1,141 @@
-# panorama-brasil
+# Brazil Economic Overview
 
 [![tests](https://github.com/tcpalbertvaldivia1993-lang/panorama-brasil/actions/workflows/tests.yml/badge.svg)](https://github.com/tcpalbertvaldivia1993-lang/panorama-brasil/actions/workflows/tests.yml)
+[![data backup](https://github.com/tcpalbertvaldivia1993-lang/panorama-brasil/actions/workflows/actualizar-respaldo.yml/badge.svg)](https://github.com/tcpalbertvaldivia1993-lang/panorama-brasil/actions/workflows/actualizar-respaldo.yml)
 
-Proyecto de punta a punta con datos públicos del **Banco Central de Brasil (BCB)**:
-API → base de datos SQLite → notebook de análisis → dashboard.
+**English** | [Español](README.es.md)
 
-## Series
+End-to-end data project with public data from the **Central Bank of Brazil (BCB)**:
+API → SQLite database → analysis notebook → interactive dashboard in English, Portuguese and Spanish.
 
-| Código SGS | Serie | Frecuencia |
-|-----------:|-------|------------|
-| 432 | Selic meta (% a.a.) | diaria |
-| 433 | IPCA, variación mensual (%) | mensual |
-| 1 | Dólar venta (BRL/USD) | diaria (días hábiles) |
+![Dashboard](notebooks/figuras/dashboard_selic.png)
 
-Fuente: API SGS del BCB, sin registro ni credenciales:
-`https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados?formato=json`
+## Key findings
 
-## Estructura
+Data from January 2000 to October 2026.
 
-```
-├── src/
-│   ├── bcb_client.py   # descarga de series desde la API SGS
-│   ├── db.py           # crea la base y carga los datos
-│   └── consultas.py    # ejecuta por nombre las consultas de sql/consultas.sql
-├── sql/
-│   ├── schema.sql      # esquema de la tabla series
-│   └── consultas.sql   # promedio anual, máximos/mínimos, variación mensual, IPCA anual
-├── notebooks/
-│   ├── analisis.ipynb  # análisis y gráficos
-│   └── figuras/        # gráficos exportados en PNG
-├── dashboard/
-│   ├── app.py          # dashboard de Streamlit
-│   └── idiomas.py      # textos en inglés, portugués y español
-├── tests/              # pruebas con pytest (sin conexión a la API)
-├── data/
-│   ├── panorama.db     # base SQLite (no se sube a GitHub)
-│   └── respaldo.csv.gz # copia de los datos, actualizada cada día por GitHub Actions
-├── .github/workflows/  # GitHub Actions: pruebas en cada push y respaldo diario
-├── requirements.txt
-├── requirements-dev.txt
-└── README.md
+1. **From a record low to the highest rate in almost 20 years.** The Selic target rate was cut to a record low of **2.00%** (August 2020 – March 2021), then raised to **15.00%** in June 2025, its highest level since July 2006. It is now 13.75%.
+2. **Post-pandemic inflation spike.** 12-month inflation (IPCA) rose from **1.88%** in May 2020 to **12.13%** in April 2022, the highest since 2003. Since 2000, yearly inflation has only exceeded 10% three times: 2002 (12.53%), 2015 (10.67%) and 2021 (10.06%). It is now 4.58% (September 2026).
+3. **From negative to very high real interest rates.** The real rate (Selic minus 12-month IPCA) was negative in 20 of the 22 months between July 2020 and April 2022, bottoming at **−4.7 pp** in July 2021. It then peaked at **11.2 pp** in February 2026, the highest since June 2006.
+4. **The real lost almost two-thirds of its value against the dollar.** The exchange rate went from 1.80 BRL/USD in January 2000 to 5.04 in October 2026 (+180%). The real was strongest in July 2011 (1.53) and weakest on 2 January 2025 (6.21); since then it has recovered 19%.
+
+![Selic vs. IPCA](notebooks/figuras/selic_vs_ipca.png)
+*Selic target vs. 12-month IPCA; shaded: Selic below inflation. Charts come from the notebook, which is in Spanish.*
+
+![Yearly real interest rate](notebooks/figuras/tasa_real_anual.png)
+*Yearly real rate: average Selic minus that year's IPCA, in percentage points (finding 3 uses monthly values).*
+
+![US dollar](notebooks/figuras/dolar.png)
+*US dollar selling rate (BRL/USD).*
+
+## Architecture
+
+```mermaid
+flowchart LR
+    API[BCB SGS API] -->|10-year chunks,<br/>retries| CLIENT[src/bcb_client.py]
+    CLIENT -->|incremental,<br/>idempotent load| DB[(SQLite<br/>data/panorama.db)]
+    BACKUP[data/respaldo.csv.gz<br/>updated daily by GitHub Actions] -->|fast start,<br/>API outages| DB
+    DB --> SQL[sql/consultas.sql]
+    DB --> NB[notebooks/analisis.ipynb]
+    DB --> APP[dashboard/app.py<br/>Streamlit]
 ```
 
-## Instalación
+## Data
 
-Requiere Python 3.11 o superior.
+| SGS code | Series | Frequency |
+|---------:|--------|-----------|
+| 432 | Selic target rate (% per year) | daily |
+| 433 | IPCA inflation, monthly change (%) | monthly |
+| 1 | US dollar, selling rate (BRL/USD) | business days |
+
+Source: BCB SGS API, no registration or credentials needed:
+`https://api.bcb.gov.br/dados/serie/bcdata.sgs.{code}/dados?formato=json`
+
+## Dashboard
+
+- **Series:** latest value, maximum and minimum of each series in the selected range, with its chart.
+- **Selic vs. inflation:** Selic target, 12-month IPCA and approximate real interest rate.
+- **Yearly average and data:** yearly averages, filtered data and CSV download.
+
+Series and date range are chosen in the sidebar; the language selector (English, Português, Español) is at the top right.
+
+| Series | Yearly average and data |
+|---|---|
+| ![Series tab](notebooks/figuras/dashboard_series.png) | ![Data tab](notebooks/figuras/dashboard_tabla.png) |
+
+## Quick start
+
+Requires Python 3.11 or newer.
 
 ```bash
+git clone https://github.com/tcpalbertvaldivia1993-lang/panorama-brasil.git
+cd panorama-brasil
 python3 -m venv venv
 venv/bin/pip install -r requirements.txt
-```
 
-## Uso
-
-Descargar las series y cargarlas en `data/panorama.db`:
-
-```bash
-venv/bin/python -m src.db                     # solo los datos nuevos (la primera vez, desde 2000-01-01)
-venv/bin/python -m src.db --desde 2015-01-01  # volver a descargar todo desde una fecha
-```
-
-La carga es **incremental** e **idempotente**: cada serie se pide solo desde su último dato (menos 60 días, por si el BCB corrigió algún valor reciente) y, si la ejecutas otra vez, no duplica nada.
-
-Abrir el notebook de análisis:
-
-```bash
+venv/bin/python -m src.db                    # load the data into data/panorama.db
+venv/bin/streamlit run dashboard/app.py      # dashboard at http://localhost:8501
 venv/bin/jupyter notebook notebooks/analisis.ipynb
 ```
 
-Abrir el dashboard (se abre en http://localhost:8501):
+`python -m src.db` is **incremental** and **idempotent**: each series is only requested from its latest stored date (minus 60 days, in case the BCB revised recent values), and running it twice never duplicates rows. With an empty database it starts from `data/respaldo.csv.gz`, so the first load takes seconds. To download everything again from a given date: `venv/bin/python -m src.db --desde 2015-01-01`.
 
-```bash
-venv/bin/streamlit run dashboard/app.py
-```
+### Deploy on Streamlit Community Cloud
 
-El dashboard tiene tres pestañas:
+The database is not stored in the repository. When the dashboard does not find it, it builds it instantly from `data/respaldo.csv.gz` and then fetches new data from the API in the background, at most every 12 hours.
 
-- **Series:** último valor, máximo y mínimo de cada serie en el rango elegido, con su gráfico.
-- **Selic vs. inflación:** Selic meta, IPCA acumulado en 12 meses y tasa real aproximada.
-- **Promedio anual y datos:** tabla de promedios por año, datos filtrados y descarga en CSV.
+1. Sign in at https://share.streamlit.io with your GitHub account.
+2. **Create app** → repository `panorama-brasil`, branch `main`, file `dashboard/app.py`.
+3. Under **Advanced settings**, choose Python 3.12 and click **Deploy**.
 
-En la barra lateral se eligen las series y el rango de fechas. Arriba a la derecha hay un selector de idioma: inglés (por defecto), portugués o español.
-
-![Dashboard: pestaña Series](notebooks/figuras/dashboard_series.png)
-
-![Dashboard: Selic vs. inflación](notebooks/figuras/dashboard_selic.png)
-
-![Dashboard: promedio anual y datos](notebooks/figuras/dashboard_tabla.png)
-
-### Publicarlo en Streamlit Community Cloud
-
-La base `data/panorama.db` no se sube a GitHub. Si el dashboard no la encuentra, la crea al instante desde `data/respaldo.csv.gz`. Después busca datos nuevos en la API en segundo plano, como mucho cada 12 horas, sin hacer esperar a nadie.
-
-1. Entrar en https://share.streamlit.io con la cuenta de GitHub.
-2. **Create app** → repositorio `panorama-brasil`, rama `main`, archivo `dashboard/app.py`.
-3. En **Advanced settings**, elegir Python 3.12 y pulsar **Deploy**.
-
-## Análisis
-
-![Selic vs. IPCA](notebooks/figuras/selic_vs_ipca.png)
-
-![Tasa real anual](notebooks/figuras/tasa_real_anual.png)
-
-![Dólar](notebooks/figuras/dolar.png)
-
-## Pruebas
+## Tests
 
 ```bash
 venv/bin/pip install -r requirements-dev.txt
-venv/bin/python -m pytest              # todas
-venv/bin/python -m pytest -k tramos    # solo las que contienen "tramos" en el nombre
+venv/bin/python -m pytest
 ```
 
-Las pruebas no se conectan a la API: simulan sus respuestas, así que son rápidas y no fallan si la API está caída. Cubren la división en tramos, los reintentos, la conversión de fechas y valores, la carga idempotente e incremental, la creación segura de la base, la actualización en segundo plano, las consultas SQL, el IPCA acumulado y las traducciones del dashboard. Las pruebas de la app completa necesitan `data/panorama.db` y se omiten si no existe (por ejemplo, en GitHub Actions).
+55 tests that never call the API (responses are simulated), so they are fast and do not fail when the API is down. They cover the 10-year chunking, retries, date and value conversion, idempotent and incremental loading, safe database creation, the backup file, the background update, the SQL queries, the 12-month IPCA compounding and the dashboard translations. GitHub Actions runs them on Python 3.11 and 3.12 on every push.
 
-## Base de datos
+## Technical notes
 
-Tabla `series`:
-
-| Columna | Tipo | Descripción |
-|---------|------|-------------|
-| `codigo` | INTEGER | código de la serie en el SGS |
-| `nombre` | TEXT | nombre legible |
-| `fecha` | TEXT | fecha ISO `AAAA-MM-DD` |
-| `valor` | REAL | valor numérico |
-
-Clave primaria: (`codigo`, `fecha`).
-
-Ejemplo de consulta:
+- The API returns dates as `dd/mm/yyyy` and values as text; both are converted on load (ISO dates, floats).
+- Daily series accept at most **10 years per request**, so downloads are split into chunks.
+- Network errors, `503` responses and non-JSON pages are retried with increasing waits.
+- **Backup:** the API sometimes stops responding for hours. A scheduled GitHub Action downloads new data every day and updates `data/respaldo.csv.gz` (about 60 KB), committing only when the data changed. The dashboard and `python -m src.db` start from it when there is no database.
+- Database table `series`: `codigo` INTEGER, `nombre` TEXT, `fecha` TEXT (ISO), `valor` REAL, primary key (`codigo`, `fecha`).
 
 ```bash
 sqlite3 data/panorama.db "SELECT fecha, valor FROM series WHERE codigo = 1 ORDER BY fecha DESC LIMIT 5;"
 ```
 
-## Notas técnicas
+## Project structure
 
-- La API devuelve fechas `dd/mm/aaaa` y valores como texto; al cargar se convierten a fecha ISO y a número.
-- La API acepta como máximo **10 años por consulta** en las series diarias, por eso la descarga se hace por tramos.
-- Ante errores de red o respuestas vacías, se reintenta varias veces con espera creciente.
-- **Respaldo:** la API a veces no responde durante horas. Por eso un GitHub Action descarga cada día los datos nuevos y actualiza `data/respaldo.csv.gz` (unos 60 KB). El dashboard y `python -m src.db` parten de ese respaldo cuando no hay base, así que funcionan aunque la API esté caída. Para generarlo a mano: `venv/bin/python -m src.db --exportar-respaldo`.
+```
+├── src/
+│   ├── bcb_client.py   # downloads series from the SGS API
+│   ├── db.py           # creates and updates the database, exports the backup
+│   └── consultas.py    # runs the named queries in sql/consultas.sql
+├── sql/
+│   ├── schema.sql      # schema of the series table
+│   └── consultas.sql   # yearly average, max/min, monthly change, yearly IPCA
+├── notebooks/
+│   ├── analisis.ipynb  # analysis and charts
+│   └── figuras/        # exported charts and dashboard screenshots
+├── dashboard/
+│   ├── app.py          # Streamlit dashboard
+│   └── idiomas.py      # texts in English, Portuguese and Spanish
+├── tests/              # pytest tests (no API calls)
+├── data/
+│   ├── panorama.db     # SQLite database (not in the repository)
+│   └── respaldo.csv.gz # data backup, updated daily by GitHub Actions
+└── .github/workflows/  # tests on every push and daily data backup
+```
 
-## Próximos pasos
+The code, comments and notebook are written in Spanish.
 
-- [x] `sql/consultas.sql`: promedio anual, máximos y mínimos, variación mensual
-- [x] `notebooks/analisis.ipynb`: Selic vs. IPCA, evolución del dólar
-- [x] `dashboard/app.py`: Streamlit con selector de serie y rango de fechas
-- [x] Capturas del dashboard en el README
-- [x] Subir a GitHub
-- [x] Pruebas automáticas y GitHub Actions
-- [x] Actualización incremental de los datos
-- [x] Respaldo diario de los datos para cuando falle la API
+## Roadmap
+
+- [ ] Exact real interest rate with the Fisher equation
+- [ ] Separate dashboard and development dependencies
+- [ ] More series: unemployment, CDI, official 12-month IPCA

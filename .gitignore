@@ -1,0 +1,15 @@
+# Entornos virtuales
+venv/
+.venv/
+
+# Datos y secretos
+data/*.db
+.env
+
+# Python y Jupyter
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Archivos que crea Windows al copiar desde el Explorador
+*:Zone.Identifier

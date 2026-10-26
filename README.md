@@ -1,5 +1,7 @@
 # panorama-brasil
 
+[![tests](https://github.com/tcpalbertvaldivia1993-lang/panorama-brasil/actions/workflows/tests.yml/badge.svg)](https://github.com/tcpalbertvaldivia1993-lang/panorama-brasil/actions/workflows/tests.yml)
+
 Proyecto de punta a punta con datos públicos del **Banco Central de Brasil (BCB)**:
 API → base de datos SQLite → notebook de análisis → dashboard.
 
@@ -28,9 +30,13 @@ Fuente: API SGS del BCB, sin registro ni credenciales:
 │   ├── analisis.ipynb  # análisis y gráficos
 │   └── figuras/        # gráficos exportados en PNG
 ├── dashboard/
-│   └── app.py          # dashboard de Streamlit
+│   ├── app.py          # dashboard de Streamlit
+│   └── idiomas.py      # textos en inglés, portugués y español
+├── tests/              # pruebas con pytest (sin conexión a la API)
 ├── data/               # panorama.db (no se sube a GitHub)
+├── .github/workflows/  # GitHub Actions: ejecuta las pruebas en cada push
 ├── requirements.txt
+├── requirements-dev.txt
 └── README.md
 ```
 
@@ -96,6 +102,16 @@ La base `data/panorama.db` no se sube a GitHub. Si el dashboard no la encuentra,
 
 ![Dólar](notebooks/figuras/dolar.png)
 
+## Pruebas
+
+```bash
+venv/bin/pip install -r requirements-dev.txt
+venv/bin/python -m pytest              # todas
+venv/bin/python -m pytest -k tramos    # solo las que contienen "tramos" en el nombre
+```
+
+Las pruebas no se conectan a la API: simulan sus respuestas, así que son rápidas y no fallan si la API está caída. Cubren la división en tramos, los reintentos, la conversión de fechas y valores, la carga idempotente, la creación segura de la base, las consultas SQL, el IPCA acumulado y las traducciones del dashboard. Las pruebas de la app completa necesitan `data/panorama.db` y se omiten si no existe (por ejemplo, en GitHub Actions).
+
 ## Base de datos
 
 Tabla `series`:
@@ -128,3 +144,4 @@ sqlite3 data/panorama.db "SELECT fecha, valor FROM series WHERE codigo = 1 ORDER
 - [x] `dashboard/app.py`: Streamlit con selector de serie y rango de fechas
 - [x] Capturas del dashboard en el README
 - [x] Subir a GitHub
+- [x] Pruebas automáticas y GitHub Actions

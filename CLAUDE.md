@@ -70,6 +70,7 @@ Tabla `series`:
 - Cargar datos: `python -m src.db`
 - Notebook: `jupyter notebook notebooks/analisis.ipynb`
 - Dashboard: `streamlit run dashboard/app.py`
+- Pruebas: `pip install -r requirements-dev.txt` y luego `python -m pytest`
 
 ## Criterio de "terminado"
 - Los datos se cargan con un solo comando.

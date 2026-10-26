@@ -1,0 +1,4 @@
+# Configuración de pytest: busca las pruebas en tests/ y permite importar src y dashboard
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

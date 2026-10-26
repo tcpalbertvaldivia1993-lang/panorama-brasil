@@ -1,13 +1,16 @@
 """Pruebas del dashboard: traducciones completas y la app funcionando en los tres idiomas."""
 
+import threading
 from datetime import date
 from pathlib import Path
 
 import pytest
+import streamlit as st
 from streamlit.testing.v1 import AppTest
 
 from dashboard.idiomas import FORMATO_FECHA, IDIOMAS, NOMBRES_SERIES, TEXTOS
 from src.bcb_client import SERIES
+from src import db
 from src.db import base_lista
 
 APP = str(Path(__file__).resolve().parents[1] / "dashboard" / "app.py")
@@ -37,6 +40,21 @@ def test_cada_idioma_nombra_todas_las_series(idioma):
 necesita_datos = pytest.mark.skipif(
     not base_lista(), reason="sin data/panorama.db: cárgala con `python -m src.db`"
 )
+
+
+@pytest.fixture(autouse=True)
+def sin_actualizar_desde_la_api(monkeypatch):
+    """Las pruebas nunca deben llamar a la API: la actualización en segundo plano no hace nada."""
+    llamadas = []
+    terminado = threading.Event()
+
+    def actualizar_falso():
+        llamadas.append(1)
+        terminado.set()
+
+    monkeypatch.setattr(db, "actualizar_base", actualizar_falso)
+    st.cache_resource.clear()  # olvida cuándo fue la última actualización
+    return llamadas, terminado
 
 
 def abrir_app():
@@ -73,3 +91,13 @@ def test_sin_series_elegidas_muestra_aviso():
     at.sidebar.multiselect[0].set_value([]).run()
     assert at.warning[0].value == TEXTOS["en"]["elige_serie"]
     assert not at.tabs
+
+
+@necesita_datos
+def test_actualiza_en_segundo_plano_solo_una_vez_cada_12_horas(sin_actualizar_desde_la_api):
+    llamadas, terminado = sin_actualizar_desde_la_api
+    abrir_app()
+    assert terminado.wait(timeout=5)
+    abrir_app()  # un segundo visitante poco después no vuelve a actualizar
+    abrir_app()
+    assert len(llamadas) == 1

@@ -54,11 +54,11 @@ venv/bin/pip install -r requirements.txt
 Descargar las series y cargarlas en `data/panorama.db`:
 
 ```bash
-venv/bin/python -m src.db                     # desde 2000-01-01 (por defecto)
-venv/bin/python -m src.db --desde 2015-01-01  # desde otra fecha
+venv/bin/python -m src.db                     # solo los datos nuevos (la primera vez, desde 2000-01-01)
+venv/bin/python -m src.db --desde 2015-01-01  # volver a descargar todo desde una fecha
 ```
 
-La carga es **idempotente**: si la ejecutas otra vez, actualiza los datos pero no los duplica.
+La carga es **incremental** e **idempotente**: cada serie se pide solo desde su último dato (menos 60 días, por si el BCB corrigió algún valor reciente) y, si la ejecutas otra vez, no duplica nada.
 
 Abrir el notebook de análisis:
 
@@ -88,7 +88,7 @@ En la barra lateral se eligen las series y el rango de fechas. Arriba a la derec
 
 ### Publicarlo en Streamlit Community Cloud
 
-La base `data/panorama.db` no se sube a GitHub. Si el dashboard no la encuentra, descarga las series de la API y la crea; la primera visita tarda unos 2 minutos.
+La base `data/panorama.db` no se sube a GitHub. Si el dashboard no la encuentra, descarga las series de la API y la crea; la primera visita tarda unos 3 minutos. Después, el dashboard busca datos nuevos en segundo plano como mucho cada 12 horas, sin hacer esperar a nadie.
 
 1. Entrar en https://share.streamlit.io con la cuenta de GitHub.
 2. **Create app** → repositorio `panorama-brasil`, rama `main`, archivo `dashboard/app.py`.
@@ -110,7 +110,7 @@ venv/bin/python -m pytest              # todas
 venv/bin/python -m pytest -k tramos    # solo las que contienen "tramos" en el nombre
 ```
 
-Las pruebas no se conectan a la API: simulan sus respuestas, así que son rápidas y no fallan si la API está caída. Cubren la división en tramos, los reintentos, la conversión de fechas y valores, la carga idempotente, la creación segura de la base, las consultas SQL, el IPCA acumulado y las traducciones del dashboard. Las pruebas de la app completa necesitan `data/panorama.db` y se omiten si no existe (por ejemplo, en GitHub Actions).
+Las pruebas no se conectan a la API: simulan sus respuestas, así que son rápidas y no fallan si la API está caída. Cubren la división en tramos, los reintentos, la conversión de fechas y valores, la carga idempotente e incremental, la creación segura de la base, la actualización en segundo plano, las consultas SQL, el IPCA acumulado y las traducciones del dashboard. Las pruebas de la app completa necesitan `data/panorama.db` y se omiten si no existe (por ejemplo, en GitHub Actions).
 
 ## Base de datos
 
@@ -145,3 +145,4 @@ sqlite3 data/panorama.db "SELECT fecha, valor FROM series WHERE codigo = 1 ORDER
 - [x] Capturas del dashboard en el README
 - [x] Subir a GitHub
 - [x] Pruebas automáticas y GitHub Actions
+- [x] Actualización incremental de los datos

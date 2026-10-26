@@ -5,6 +5,7 @@ Ejecutar desde la raíz del proyecto:
 """
 
 import sys
+import threading
 from pathlib import Path
 
 import pandas as pd
@@ -19,26 +20,58 @@ sys.path.insert(0, str(RAIZ))
 from dashboard.idiomas import FORMATO_FECHA, IDIOMAS, NOMBRES_SERIES, TEXTOS  # noqa: E402
 from src.bcb_client import SERIES  # noqa: E402
 from src.consultas import leer_series, selic_vs_ipca  # noqa: E402
-from src.db import base_lista, crear_base  # noqa: E402
+from src.db import RUTA_DB, actualizar_base, base_lista, crear_base  # noqa: E402
 
 COLORES = {432: "#1f77b4", 433: "#d62728", 1: "#2ca02c"}
+HORAS_ENTRE_ACTUALIZACIONES = 12
 
 st.set_page_config(page_title="Panorama Brasil", page_icon="📈", layout="wide")
 
 
-@st.cache_resource(show_spinner=False)
-def preparar_base() -> None:
-    """Si falta data/panorama.db (por ejemplo en Streamlit Cloud), descarga las series y la crea.
+@st.cache_resource
+def estado_actualizacion() -> dict:
+    """Estado compartido por todos los visitantes: cuándo se intentó actualizar por última vez."""
+    return {"candado": threading.Lock(), "ultimo_intento": None}
 
-    cache_resource hace que se ejecute una sola vez, aunque haya varios visitantes a la vez.
+
+def preparar_base() -> None:
+    """Si falta data/panorama.db (por ejemplo en Streamlit Cloud), descarga las series y la crea."""
+    estado = estado_actualizacion()
+    with estado["candado"]:  # si llegan varios visitantes a la vez, solo uno crea la base
+        if not base_lista():
+            crear_base()
+            estado["ultimo_intento"] = pd.Timestamp.now()
+
+
+def actualizar_en_segundo_plano() -> None:
+    """Descarga los datos nuevos sin hacer esperar al visitante, como mucho cada 12 horas.
+
+    Mientras tanto se muestran los datos que ya hay; los nuevos aparecen al recargar la página.
     """
-    if not base_lista():
-        crear_base()
+    estado = estado_actualizacion()
+    with estado["candado"]:
+        ahora = pd.Timestamp.now()
+        ultimo = estado["ultimo_intento"]
+        if ultimo is not None and ahora - ultimo < pd.Timedelta(hours=HORAS_ENTRE_ACTUALIZACIONES):
+            return
+        estado["ultimo_intento"] = ahora
+
+    def tarea() -> None:
+        try:
+            actualizar_base()
+        except Exception as error:  # si la API falla, se sigue con los datos que hay
+            print(f"No se pudo actualizar la base: {error}")
+
+    threading.Thread(target=tarea, daemon=True).start()
 
 
 @st.cache_data
-def cargar_datos() -> pd.DataFrame:
-    """Lee la tabla series una sola vez y la guarda en caché."""
+def cargar_datos(version: float) -> pd.DataFrame:
+    """Lee la tabla series y la guarda en caché.
+
+    `version` es la fecha de modificación del archivo: si la base se actualiza, cambia
+    y la caché se vuelve a leer sola.
+    """
     return leer_series()
 
 
@@ -80,14 +113,16 @@ FECHA = FORMATO_FECHA[idioma]
 col_titulo.title(T["titulo"])
 
 # ---------- Datos ----------
-try:
-    with st.spinner(T["descargando"]):
-        preparar_base()
-except RuntimeError as error:  # la API no respondió ni con reintentos
-    st.error(T["error_descarga"].format(error=error))
-    st.stop()
+if not base_lista():
+    try:
+        with st.spinner(T["descargando"]):
+            preparar_base()
+    except RuntimeError as error:  # la API no respondió ni con reintentos
+        st.error(T["error_descarga"].format(error=error))
+        st.stop()
+actualizar_en_segundo_plano()
 
-series = cargar_datos().assign(nombre=lambda df: df["codigo"].map(NOMBRES))
+series = cargar_datos(RUTA_DB.stat().st_mtime).assign(nombre=lambda df: df["codigo"].map(NOMBRES))
 
 # ---------- Filtros (barra lateral) ----------
 st.sidebar.header(T["filtros"])

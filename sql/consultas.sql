@@ -59,7 +59,8 @@ ORDER BY codigo, mes;
 
 -- nombre: ipca_anual
 -- IPCA acumulado en cada año (se multiplican los factores mensuales 1 + v/100),
--- comparado con la Selic meta promedio del mismo año.
+-- comparado con la Selic meta promedio del mismo año. La tasa real usa la ecuación
+-- de Fisher: (1 + Selic) / (1 + IPCA) − 1.
 WITH RECURSIVE ipca AS (
     SELECT
         substr(fecha, 1, 4) AS anio,
@@ -90,7 +91,8 @@ selic_anio AS (
 )
 SELECT
     i.anio, i.meses, i.ipca_acumulado_pct, s.selic_promedio,
-    ROUND(s.selic_promedio - i.ipca_acumulado_pct, 2) AS diferencia_pp
+    ROUND(100.0 * ((1 + s.selic_promedio / 100.0) / (1 + i.ipca_acumulado_pct / 100.0) - 1), 2)
+        AS tasa_real_pct
 FROM ipca_anio AS i
 LEFT JOIN selic_anio AS s ON s.anio = i.anio
 ORDER BY i.anio;

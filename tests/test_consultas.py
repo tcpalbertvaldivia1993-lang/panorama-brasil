@@ -58,7 +58,7 @@ def test_selic_vs_ipca_acumula_doce_meses():
     assert list(mensual.index) == [pd.Timestamp("2024-12-01")]
     esperado = (1.01 ** 12 - 1) * 100  # 12,68 %, no 12 %: la inflación se compone
     assert mensual["ipca_12m"].iloc[0] == pytest.approx(esperado)
-    assert mensual["tasa_real"].iloc[0] == pytest.approx(13.75 - esperado)
+    assert mensual["tasa_real"].iloc[0] == pytest.approx((1.1375 / (1 + esperado / 100) - 1) * 100)
 
 
 def test_selic_vs_ipca_toma_la_selic_del_ultimo_dia_del_mes():
@@ -69,3 +69,25 @@ def test_selic_vs_ipca_toma_la_selic_del_ultimo_dia_del_mes():
                          "valor": 0.4})
     mensual = consultas.selic_vs_ipca(pd.concat([selic, ipca]))
     assert mensual["selic"].iloc[-1] == 12.25
+
+
+def test_tasa_real_fisher_casos_conocidos():
+    assert consultas.tasa_real_fisher(10.0, 10.0) == pytest.approx(0.0)
+    assert consultas.tasa_real_fisher(13.75, 4.58) == pytest.approx(8.768, abs=0.001)
+    assert consultas.tasa_real_fisher(2.0, 8.0) == pytest.approx(-5.556, abs=0.001)
+
+
+def test_tasa_real_fisher_es_menor_que_la_resta_con_tasas_positivas():
+    """La resta (i − π) exagera la tasa real; la diferencia crece con la inflación."""
+    for selic, ipca in [(13.75, 4.58), (26.5, 17.24), (6.5, 3.0)]:
+        assert consultas.tasa_real_fisher(selic, ipca) < selic - ipca
+
+
+def test_ipca_anual_usa_fisher(base_de_prueba):
+    """Con Selic 10 % y IPCA 0,5 % mensual (6,17 % anual), la tasa real es 3,6 %."""
+    anual = consultas.ejecutar("ipca_anual")
+    fila = anual[anual["anio"] == "2024"].iloc[0]
+    assert fila["ipca_acumulado_pct"] == pytest.approx((1.005 ** 12 - 1) * 100, abs=0.01)
+    assert fila["tasa_real_pct"] == pytest.approx(
+        consultas.tasa_real_fisher(10.0, fila["ipca_acumulado_pct"]), abs=0.01
+    )

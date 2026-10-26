@@ -185,7 +185,7 @@ with pestaña_real:
         col1, col2, col3 = st.columns(3)
         col1.metric(T["selic_meta"], f"{ultimo['selic']:.2f} %")
         col2.metric(T["ipca_12m"], f"{ultimo['ipca_12m']:.2f} %")
-        col3.metric(T["tasa_real"], f"{ultimo['tasa_real']:.2f} {T['unidad_pp']}")
+        col3.metric(T["tasa_real"], f"{ultimo['tasa_real']:.2f} %")
         st.caption(T["nota_real"].format(mes=f"{mensual.index[-1]:%m/%Y}"))
 
         fig = go.Figure()

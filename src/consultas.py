@@ -26,14 +26,24 @@ def ejecutar(nombre: str) -> pd.DataFrame:
         return pd.read_sql_query(consultas[nombre], conexion)
 
 
+def tasa_real_fisher(nominal_pct, inflacion_pct):
+    """Tasa de interés real en % con la ecuación de Fisher: (1 + i) / (1 + π) − 1.
+
+    Restar (i − π) es solo una aproximación, que exagera la tasa real cuando las tasas son
+    altas: con Selic 13,75 % e inflación 4,58 % la resta da 9,17 y Fisher da 8,77 %.
+    Acepta números o Series de pandas.
+    """
+    return ((1 + nominal_pct / 100) / (1 + inflacion_pct / 100) - 1) * 100
+
+
 def selic_vs_ipca(series: pd.DataFrame) -> pd.DataFrame:
-    """Devuelve por mes la Selic meta al cierre, el IPCA acumulado en 12 meses y la tasa real."""
+    """Devuelve por mes la Selic meta al cierre, el IPCA acumulado en 12 meses y la tasa real (Fisher)."""
     ipca = series[series["codigo"] == 433].set_index("fecha")["valor"].sort_index()
     ipca_12m = ((1 + ipca / 100).rolling(12).apply(lambda x: x.prod(), raw=True) - 1) * 100
     selic = (series[series["codigo"] == 432].set_index("fecha")["valor"]
              .sort_index().resample("MS").last())
     mensual = pd.DataFrame({"selic": selic, "ipca_12m": ipca_12m}).dropna()
-    mensual["tasa_real"] = mensual["selic"] - mensual["ipca_12m"]
+    mensual["tasa_real"] = tasa_real_fisher(mensual["selic"], mensual["ipca_12m"])
     return mensual
 
 

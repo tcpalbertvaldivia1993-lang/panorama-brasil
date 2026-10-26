@@ -16,14 +16,14 @@ Data from January 2000 to October 2026.
 
 1. **From a record low to the highest rate in almost 20 years.** The Selic target rate was cut to a record low of **2.00%** (August 2020 – March 2021), then raised to **15.00%** in June 2025, its highest level since July 2006. It is now 13.75%.
 2. **Post-pandemic inflation spike.** 12-month inflation (IPCA) rose from **1.88%** in May 2020 to **12.13%** in April 2022, the highest since 2003. Since 2000, yearly inflation has only exceeded 10% three times: 2002 (12.53%), 2015 (10.67%) and 2021 (10.06%). It is now 4.58% (September 2026).
-3. **From negative to very high real interest rates.** The real rate (Selic minus 12-month IPCA) was negative in 20 of the 22 months between July 2020 and April 2022, bottoming at **−4.7 pp** in July 2021. It then peaked at **11.2 pp** in February 2026, the highest since June 2006.
+3. **From negative to very high real interest rates.** The real interest rate (Fisher equation: Selic target vs. 12-month IPCA) was negative in 20 of the 22 months between July 2020 and April 2022, bottoming at **−4.35%** in July 2021. It then peaked at **10.78%** in February 2026, the highest since June 2006. It is now 8.77%.
 4. **The real lost almost two-thirds of its value against the dollar.** The exchange rate went from 1.80 BRL/USD in January 2000 to 5.04 in October 2026 (+180%). The real was strongest in July 2011 (1.53) and weakest on 2 January 2025 (6.21); since then it has recovered 19%.
 
 ![Selic vs. IPCA](notebooks/figuras/selic_vs_ipca.png)
 *Selic target vs. 12-month IPCA; shaded: Selic below inflation. Charts come from the notebook, which is in Spanish.*
 
 ![Yearly real interest rate](notebooks/figuras/tasa_real_anual.png)
-*Yearly real rate: average Selic minus that year's IPCA, in percentage points (finding 3 uses monthly values).*
+*Yearly real rate (Fisher equation) from the average Selic and that year's IPCA; 2026 covers January–September only. Finding 3 uses monthly values.*
 
 ![US dollar](notebooks/figuras/dolar.png)
 *US dollar selling rate (BRL/USD).*
@@ -54,7 +54,7 @@ Source: BCB SGS API, no registration or credentials needed:
 ## Dashboard
 
 - **Series:** latest value, maximum and minimum of each series in the selected range, with its chart.
-- **Selic vs. inflation:** Selic target, 12-month IPCA and approximate real interest rate.
+- **Selic vs. inflation:** Selic target, 12-month IPCA and real interest rate.
 - **Yearly average and data:** yearly averages, filtered data and CSV download.
 
 Series and date range are chosen in the sidebar; the language selector (English, Português, Español) is at the top right.
@@ -95,13 +95,14 @@ venv/bin/pip install -r requirements-dev.txt
 venv/bin/python -m pytest
 ```
 
-55 tests that never call the API (responses are simulated), so they are fast and do not fail when the API is down. They cover the 10-year chunking, retries, date and value conversion, idempotent and incremental loading, safe database creation, the backup file, the background update, the SQL queries, the 12-month IPCA compounding and the dashboard translations. GitHub Actions runs them on Python 3.11 and 3.12 on every push.
+58 tests that never call the API (responses are simulated), so they are fast and do not fail when the API is down. They cover the 10-year chunking, retries, date and value conversion, idempotent and incremental loading, safe database creation, the backup file, the background update, the SQL queries, the 12-month IPCA compounding and the dashboard translations. GitHub Actions runs them on Python 3.11 and 3.12 on every push.
 
 ## Technical notes
 
 - The API returns dates as `dd/mm/yyyy` and values as text; both are converted on load (ISO dates, floats).
 - Daily series accept at most **10 years per request**, so downloads are split into chunks.
 - Network errors, `503` responses and non-JSON pages are retried with increasing waits.
+- **Real interest rate:** computed with the Fisher equation, `(1 + Selic) / (1 + IPCA) − 1`, in `tasa_real_fisher()` (`src/consultas.py`), shared by the notebook and the dashboard. The common shortcut `Selic − IPCA` overstates it when rates are high: today it would give 9.17 instead of 8.77%.
 - **Backup:** the API sometimes stops responding for hours. A scheduled GitHub Action downloads new data every day and updates `data/respaldo.csv.gz` (about 60 KB), committing only when the data changed. The dashboard and `python -m src.db` start from it when there is no database.
 - Database table `series`: `codigo` INTEGER, `nombre` TEXT, `fecha` TEXT (ISO), `valor` REAL, primary key (`codigo`, `fecha`).
 
@@ -136,6 +137,5 @@ The code, comments and notebook are written in Spanish.
 
 ## Roadmap
 
-- [ ] Exact real interest rate with the Fisher equation
 - [ ] Separate dashboard and development dependencies
 - [ ] More series: unemployment, CDI, official 12-month IPCA

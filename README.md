@@ -71,12 +71,16 @@ Requires Python 3.11 or newer.
 git clone https://github.com/tcpalbertvaldivia1993-lang/panorama-brasil.git
 cd panorama-brasil
 python3 -m venv venv
-venv/bin/pip install -r requirements.txt
+venv/bin/pip install -r requirements.txt      # data loading and dashboard
 
 venv/bin/python -m src.db                    # load the data into data/panorama.db
 venv/bin/streamlit run dashboard/app.py      # dashboard at http://localhost:8501
+
+venv/bin/pip install -r requirements-dev.txt  # adds Jupyter, matplotlib and pytest
 venv/bin/jupyter notebook notebooks/analisis.ipynb
 ```
+
+`requirements.txt` only has what the dashboard needs (37 packages), so Streamlit Cloud installs less than half of the full development environment (123 packages).
 
 `python -m src.db` is **incremental** and **idempotent**: each series is only requested from its latest stored date (minus 60 days, in case the BCB revised recent values), and running it twice never duplicates rows. With an empty database it starts from `data/respaldo.csv.gz`, so the first load takes seconds. To download everything again from a given date: `venv/bin/python -m src.db --desde 2015-01-01`.
 
@@ -137,5 +141,4 @@ The code, comments and notebook are written in Spanish.
 
 ## Roadmap
 
-- [ ] Separate dashboard and development dependencies
 - [ ] More series: unemployment, CDI, official 12-month IPCA

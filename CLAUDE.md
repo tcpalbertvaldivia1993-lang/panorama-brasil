@@ -66,9 +66,9 @@ Tabla `series`:
 8. Subir a GitHub.
 
 ## Comandos
-- Instalar: `pip install -r requirements.txt`
+- Instalar: `pip install -r requirements.txt` (datos y dashboard) o `pip install -r requirements-dev.txt` (además notebook y pruebas)
 - Cargar datos: `python -m src.db`
-- Notebook: `jupyter notebook notebooks/analisis.ipynb`
+- Notebook (requiere `requirements-dev.txt`): `jupyter notebook notebooks/analisis.ipynb`
 - Dashboard: `streamlit run dashboard/app.py`
 - Pruebas: `pip install -r requirements-dev.txt` y luego `python -m pytest`
 

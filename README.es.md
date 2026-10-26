@@ -69,12 +69,16 @@ Requiere Python 3.11 o superior.
 git clone https://github.com/tcpalbertvaldivia1993-lang/panorama-brasil.git
 cd panorama-brasil
 python3 -m venv venv
-venv/bin/pip install -r requirements.txt
+venv/bin/pip install -r requirements.txt      # carga de datos y dashboard
 
 venv/bin/python -m src.db                    # carga los datos en data/panorama.db
 venv/bin/streamlit run dashboard/app.py      # dashboard en http://localhost:8501
+
+venv/bin/pip install -r requirements-dev.txt  # agrega Jupyter, matplotlib y pytest
 venv/bin/jupyter notebook notebooks/analisis.ipynb
 ```
+
+`requirements.txt` tiene solo lo que necesita el dashboard (37 paquetes), así que Streamlit Cloud instala menos de la mitad que el entorno de desarrollo completo (123 paquetes).
 
 `python -m src.db` es **incremental** e **idempotente**: cada serie se pide solo desde su último dato (menos 60 días, por si el BCB corrigió algún valor reciente) y, si lo ejecutas dos veces, no duplica nada. Con la base vacía parte de `data/respaldo.csv.gz`, así que la primera carga tarda segundos. Para volver a descargar todo desde una fecha: `venv/bin/python -m src.db --desde 2015-01-01`.
 
@@ -134,5 +138,4 @@ sqlite3 data/panorama.db "SELECT fecha, valor FROM series WHERE codigo = 1 ORDER
 
 ## Próximos pasos
 
-- [ ] Separar las dependencias del dashboard y las de desarrollo
 - [ ] Más series: desempleo, CDI, IPCA oficial de 12 meses

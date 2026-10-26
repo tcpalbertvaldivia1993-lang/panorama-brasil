@@ -1,3 +1,9 @@
-# Dependencias para desarrollo: todo lo del proyecto más las pruebas
+# Para desarrollo: todo lo del dashboard más el notebook y las pruebas
 -r requirements.txt
-pytest>=8.0
+
+# Notebook de análisis
+jupyter>=1.1,<2
+matplotlib>=3.10,<4
+
+# Pruebas
+pytest>=8.0,<10

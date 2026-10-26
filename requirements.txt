@@ -1,11 +1,6 @@
-# Descarga y carga de datos
-requests>=2.31
-pandas>=2.2
-
-# Notebook de análisis
-jupyter>=1.0
-matplotlib>=3.8
-plotly>=5.20
-
-# Dashboard
-streamlit>=1.35
+# Lo necesario para cargar los datos y ejecutar el dashboard (lo que instala Streamlit Cloud).
+# Mínimo: versiones probadas. Máximo: la siguiente versión mayor, que puede traer cambios incompatibles.
+requests>=2.32,<3
+pandas>=3.0,<4
+plotly>=7.0,<8
+streamlit>=1.66,<2
